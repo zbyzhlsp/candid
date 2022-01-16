@@ -126,7 +126,7 @@ pub(crate) fn ident_for_var(id: &str) -> RcDoc {
                 str(id).append(".idl")
             }
             Some(it) => {
-                RcDoc::text(it.get(0).unwrap().to_owned())
+                str(id)
             }
         }
     }
@@ -230,7 +230,13 @@ fn pp_ty_for_field<'a>(ty: &'a Type) -> RcDoc<'a> {
         Vec(ref t) => {
             str("List").append(enclose("<", pp_ty_for_field(t), ">"))
         },
-        Record(ref fs) => unreachable!(),
+        Record(ref fs) => {
+            if is_tuple(ty) {
+                str("List")
+            } else {
+                str("")
+            }
+        },
         Variant(ref fs) => {
             str("IDL.Variant").append(pp_fields(fs))
         },
@@ -533,7 +539,6 @@ pub fn compile(env: &TypeEnv, actor: &Option<Type>) -> String {
             let def_list: Vec<_> = env.0.iter().map(|pair| pair.0.as_ref()).collect();
             let recs = infer_rec(env, &def_list).unwrap();
             let doc = pp_defs(env, &def_list, &recs);
-            // println!("AAAAA {}",PRIVILEGES2.lock().unwrap().get("TextField").unwrap().get(1).unwrap().to_owned());
             doc.pretty(LINE_WIDTH).to_string()
         }
         Some(actor) => {
