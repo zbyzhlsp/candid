@@ -14,6 +14,8 @@ use std::sync::Mutex;
 
 lazy_static! {
     static ref PRIVILEGES2: Mutex<HashMap<String, Vec<String>>> = Mutex::new(HashMap::new());
+    static ref OPTIONAL_FIELDS: Mutex<HashMap<String, Vec<String>>> = Mutex::new(HashMap::new());
+    static ref CURR_CLASS_NAME: Mutex<String> = Mutex::new(String::new());
 }
 
 // The definition of tuple is language specific.
@@ -168,8 +170,10 @@ fn pp_ty_init<'a>(ty: &'a Type, id:&'a str) -> RcDoc<'a> {
         Record(ref fs) => {
             if is_tuple(ty) {
                 let tuple = concat(fs.iter().map(|f| pp_ty(&f.ty)), ",");
-                str("IDL.Tuple").append(enclose("(", tuple, ")"))
+                str("IDL.Tuple").append(enclose("([", tuple, "])"))
             } else {
+                PRIVILEGES2.lock().unwrap().insert(id.to_string(), vec![type_str.pretty(LINE_WIDTH).to_string(), dart_type]);
+                CURR_CLASS_NAME.lock().unwrap()
                 kwd("class")
                     .append(str(id))
                     .append(enclose("{",
@@ -182,7 +186,7 @@ fn pp_ty_init<'a>(ty: &'a Type, id:&'a str) -> RcDoc<'a> {
                                         .append(pp_to_json(fs))
                                         .append(RcDoc::hardline())
                                         .append(pp_create_static_idl(fs))
-                                    ,"};"))
+                                    ,"}"))
 
                 // str("IDL.Record").append(pp_fields(fs))
             }
@@ -281,7 +285,7 @@ fn pp_ty<'a>(ty: &'a Type) -> RcDoc<'a> {
         Record(ref fs) => {
             if is_tuple(ty) {
                 let tuple = concat(fs.iter().map(|f| pp_ty(&f.ty)), ",");
-                str("IDL.Tuple").append(enclose("(", tuple, ")"))
+                str("IDL.Tuple").append(enclose("([", tuple, "])"))
             } else {
                 str("IDL.Record").append(pp_fields(fs))
             }
@@ -331,7 +335,7 @@ fn pp_ty_raw<'a>(ty: &'a Type) -> RcDoc<'a> {
         Record(ref fs) => {
             if is_tuple(ty) {
                 let tuple = concat(fs.iter().map(|f| pp_ty_raw(&f.ty)), ",");
-                str("IDL.Tuple").append(enclose("(", tuple, ")"))
+                str("IDL.Tuple").append(enclose("([", tuple, "])"))
             } else {
                 str("IDL.Record").append(pp_fields(fs))
             }
@@ -414,19 +418,19 @@ fn pp_fields<'a>(fs: &'a [Field]) -> RcDoc<'a> {
 
 
 fn pp_fields_constructor<'a>(fs: &'a [Field],class_name:&'a str) -> RcDoc<'a> {
-    str(class_name).append(enclose("({",concat(fs.iter().map(pp_field_in_constructor), ","),"})"))
+    str(class_name).append(enclose("({",concat(fs.iter().map(pp_field_in_constructor), ","),"});"))
 }
 
 fn pp_factory<'a>(fs: &'a [Field],class_name:&'a str) -> RcDoc<'a> {
     kwd("factory")
         .append(class_name)
         .append(".fromMap(Map map)")
-        .append(enclose("({",
+        .append(enclose("{",
                         kwd("return").append(class_name).append(
                                 enclose("(",
                                         concat(fs.iter().map(pp_field_in_factory), ","),
-                                        ")"))
-                            ,"});"))
+                                        ");"))
+                            ,"}"))
 }
 
 fn pp_create_static_idl<'a>(fs: &'a [Field]) -> RcDoc<'a> {
